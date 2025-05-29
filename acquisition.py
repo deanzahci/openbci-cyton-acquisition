@@ -83,6 +83,65 @@ def stream_callback(sample):
     timestamp = time.time()  # High precision timestamp
     BUFFER.append((timestamp, scaled_data))
 
+def generate_dataset_data():
+    """
+    Read data from a dataset file and feed it into the acquisition pipeline.
+    The file should be CSV-like, with each row containing channel values and a timestamp.
+    """
+    global BUFFER
+
+    import os
+    from datetime import datetime
+
+    dataset_file = 'raw_data/0/Arithmetic/natural-1.txt'
+
+    if not os.path.exists(dataset_file):
+        print(f"Error: File {dataset_file} not found")
+        return
+
+    print(f"Reading data from {dataset_file}...")
+
+    try:
+        with open(dataset_file, 'r') as f:
+            lines = f.readlines()
+
+        channel_data = []
+        timestamps = []
+
+        for line in lines:
+            if not line.strip():
+                continue
+            values = [v.strip() for v in line.strip().split(',')]
+            try:
+                # The last column is the timestamp string
+                timestamp = datetime.strptime(values[-1], '%Y-%m-%d %H:%M:%S.%f')
+                timestamps.append(timestamp)
+                # The channel data is columns 1 to 1+CHANNEL_COUNT (skip index at 0)
+                channel_values = [float(x) for x in values[1:1+CHANNEL_COUNT]]
+                channel_data.append(channel_values)
+            except (ValueError, IndexError) as e:
+                print(f"Warning: Skipping malformed line: {e}")
+                continue
+
+        channel_data = np.array(channel_data)
+        start_time = timestamps[0]
+        relative_times = [(t - start_time).total_seconds() for t in timestamps]
+
+        print(f"Successfully loaded {len(channel_data)} samples")
+        print(f"Data shape: {channel_data.shape}")
+        print(f"Time range: {relative_times[0]:.2f} to {relative_times[-1]:.2f} seconds")
+
+        # Feed data into the acquisition pipeline
+        for i in range(len(channel_data)):
+            BUFFER.append((relative_times[i], channel_data[i]))
+            if i < len(channel_data) - 1:
+                time.sleep((relative_times[i+1] - relative_times[i]))
+
+        print("Finished feeding data into acquisition pipeline")
+
+    except Exception as e:
+        print(f"Error processing file: {str(e)}")
+
 def generate_random_data():
     """Generate random EEG-like data when OpenBCI is not available"""
     global BUFFER
@@ -148,7 +207,7 @@ def main():
     else:
         # Fallback to random data generation
         print("Using random data generation as fallback...")
-        random_thread = threading.Thread(target=generate_random_data, daemon=True)
+        random_thread = threading.Thread(target=generate_dataset_data, daemon=True)
         random_thread.start()
         
         try:
@@ -172,6 +231,7 @@ def get_epoched_data(timeout=1.0):
         return Queue1.get(timeout=timeout)
     except queue.Empty:
         return None
+
 
 def get_latest_samples(n_samples=1):
     """
