@@ -119,7 +119,7 @@ def analyze_epoch(epoch, channel=0):
     band_powers = get_band_powers(frequencies, fft_results)
     
     # Plot results
-    #plot_fft_analysis(frequencies, fft_results, band_powers, channel)
+    plot_fft_analysis(frequencies, fft_results, band_powers, channel)
     
     return band_powers
 
@@ -148,4 +148,4 @@ def getFocus(bandpowers):
     thetaAlpha = (theta[0]+theta[1]) / (alpha[0] + alpha[1])
 
     #im gonna work with betaAlpha for now but thetaAlpga and other are also valid
-    return int(100*betaAlpha)
+    return int(100*(betaAlpha))

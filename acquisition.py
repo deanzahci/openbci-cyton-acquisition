@@ -8,7 +8,7 @@ import serial
 import sys
 import os
 
-dataset_file = 'raw_data/3/Arithmetic/highlevel-9.txt'
+dataset_file = 'raw_data/1/Arithmetic/lowlevel-9.txt'
 
 # Add parent directory to Python path to import config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

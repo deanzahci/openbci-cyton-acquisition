@@ -7,6 +7,14 @@ import queue
 from scipy.signal import butter, filtfilt
 import focusAlgo
 
+
+#if using the dataset, well need to change these
+datamin = -130000
+datamax = 30000
+
+newmax = 1
+newmin = -1
+
 data_queue = queue.Queue()
 focus_queue = queue.Queue(maxsize=300)
 
@@ -18,19 +26,15 @@ def epoch_getting_thread():
         epoch = acquisition.get_epoched_data(timeout=1.0)
         if epoch:
             # Ensure timestamps are unique
-            epoch['timestamps'] = ensure_unique_timestamps(epoch['timestamps'])
+            epoch['timestamps'] = continuous_timestamps(epoch)
+            epoch['data'] = scale_data(epoch['data'])
             
             # Apply filters
             try:
-                # Apply high-pass filter first (e.g., 0.5 Hz to remove DC drift)
-                filtered_data = butter_highpass_filter(epoch['data'], 0.5, samplingRate)
-                # Then apply low-pass filter (e.g., 30 Hz to remove high frequency noise)
-                filtered_data = butter_lowpass_filter(filtered_data, 30, samplingRate)
-                # Apply notch filter to remove power line interference (60 Hz)
-                filtered_data = butter_notch_filter(filtered_data, 60, samplingRate)
                 # Finally apply bandpass filter to focus on specific frequency range (e.g., 1-30 Hz)
-                filtered_data = butter_bandpass_filter(filtered_data, 1, 30, samplingRate)
+                filtered_data = butter_bandpass_filter(epoch['data'], 1, 30, samplingRate)
                 epoch['data'] = filtered_data
+
             except Exception as e:
                 print(f"Error applying filters: {e}")
                 continue
@@ -39,21 +43,45 @@ def epoch_getting_thread():
         else:
             time.sleep(0.1)
 
-def ensure_unique_timestamps(timestamps):
+def continuous_timestamps(epoch):
     """
     takes in epoch['timestamps']
-    Ensures timestamps are unique by adding small offsets to duplicates.
+    Ensures timestamps are unique by remapping them based on the duration
     Returns a new array with unique timestamps.
 
     This solves a problem in the data, where very small differences in timestamps are considered equal
-    becuase of round off. If duplicates arise, this function just offsets them by the sampling rate
+    becuase of round off.
     """
-    unique_timestamps = timestamps.copy()
-    for i in range(1, len(timestamps)):
-        if unique_timestamps[i] <= unique_timestamps[i-1]:
-            # Add 2ms offset to make it unique
-            unique_timestamps[i] = unique_timestamps[i-1] + (1/samplingRate) #Test Data has 255 Hz Sampling Rate
-    return unique_timestamps
+    newTimes = []
+    offset = epoch['duration']/epoch['sample_count']
+    myTime = epoch['start_time']
+    for i in range(epoch['sample_count']):
+        newTimes.append(myTime)
+        myTime += offset
+
+    return newTimes
+
+def scale_data(data):
+    """
+    Scale the input data to range [-1, 1] using min-max normalization.
+    
+    Args:
+        data: Input data array
+        
+    Returns:
+        Scaled data array with values between -1 and 1
+    """
+    # Convert to numpy array if not already
+    data = np.array(data)
+    
+    # Find min and max values
+    data_min = np.min(data)
+    data_max = np.max(data)
+    
+    # Scale to [-1, 1]
+    scaled_data = 2 * ((data - data_min) / (data_max - data_min)) - 1
+    
+    return scaled_data
 
 #------ FILTERING ------- 
 
@@ -217,7 +245,7 @@ def main():
             try:
                 epoch = data_queue.get(timeout=0.1)
                 # Plot the time domain signal
-                #plot_epoch(epoch, channel=plotChannel)
+                plot_epoch(epoch, channel=plotChannel)
                 # Perform and plot FFT analysis
                 band_powers = focusAlgo.analyze_epoch(epoch, channel=plotChannel)
                 focus_queue.put(focusAlgo.getFocus(band_powers))
