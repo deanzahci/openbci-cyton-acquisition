@@ -8,6 +8,8 @@ import serial
 import sys
 import os
 
+dataset_file = 'raw_data/3/Arithmetic/highlevel-9.txt'
+
 # Add parent directory to Python path to import config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -25,13 +27,13 @@ def process_window(window_data, timestamps):
     'window_data' is a NumPy array of shape (WINDOW_SIZE, CHANNEL_COUNT)
     'timestamps' is a NumPy array of shape (WINDOW_SIZE,) with timestamp for each sample
     """
-    print(f"Received window of shape: {window_data.shape}")
-    print(f"Time range: {timestamps[0]:.3f} - {timestamps[-1]:.3f} seconds")
-    print(f"Duration: {timestamps[-1] - timestamps[0]:.3f} seconds")
+    #print(f"Received window of shape: {window_data.shape}")
+    #print(f"Time range: {timestamps[0]:.3f} - {timestamps[-1]:.3f} seconds")
+    #print(f"Duration: {timestamps[-1] - timestamps[0]:.3f} seconds")
     
     # Example: Compute mean across time for each channel
     mean_per_channel = window_data.mean(axis=0)
-    print("Mean per channel (µV):", mean_per_channel)
+    #print("Mean per channel (µV):", mean_per_channel)
 
 def epoch_and_send_data():
     """
@@ -93,7 +95,6 @@ def generate_dataset_data():
     import os
     from datetime import datetime
 
-    dataset_file = 'raw_data/0/Arithmetic/natural-1.txt'
 
     if not os.path.exists(dataset_file):
         print(f"Error: File {dataset_file} not found")
